@@ -4,11 +4,20 @@ A Jira/Trello-style backend: multi-user projects, role-based access control
 (OWNER / ADMIN / MEMBER), issues with assignment/status/priority, comments,
 filtering, and pagination.
 
+## Live demo
+
+- API: https://devtrack-fca2.onrender.com
+- Interactive docs: https://devtrack-fca2.onrender.com/api-docs
+
+Hosted on Render's free tier, so the first request after a period of
+inactivity can take up to a minute to wake back up — that's expected, not
+a bug.
+
 ## Stack
 
 Node.js · Express · TypeScript · PostgreSQL · Prisma ORM 7 (Rust-free,
 driver-adapter architecture — no native binary to install or deploy) · JWT ·
-bcrypt · Zod
+bcrypt · Zod · Jest + Supertest · Swagger UI (OpenAPI 3.0)
 
 ## Getting started
 
@@ -68,13 +77,13 @@ Server starts at `http://localhost:4000`. Check `GET /health`.
 
 ## API overview
 
-| Resource | Routes |
-|---|---|
-| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
-| Projects | `POST/GET /api/projects`, `GET/PATCH/DELETE /api/projects/:id` |
-| Members | `GET/POST /api/projects/:id/members`, `PATCH/DELETE /api/projects/:id/members/:userId` |
-| Issues | `POST/GET /api/projects/:projectId/issues`, `GET/PATCH/DELETE /api/issues/:id` |
-| Comments | `GET/POST /api/issues/:issueId/comments`, `PATCH/DELETE /api/comments/:id` |
+| Resource | Routes                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------- |
+| Auth     | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`    |
+| Projects | `POST/GET /api/projects`, `GET/PATCH/DELETE /api/projects/:id`, `GET /api/projects/:id/analytics` |
+| Members  | `GET/POST /api/projects/:id/members`, `PATCH/DELETE /api/projects/:id/members/:userId`            |
+| Issues   | `POST/GET /api/projects/:projectId/issues`, `GET/PATCH/DELETE /api/issues/:id`                    |
+| Comments | `GET/POST /api/issues/:issueId/comments`, `PATCH/DELETE /api/comments/:id`                        |
 
 All routes except register/login require `Authorization: Bearer <token>`.
 
@@ -83,11 +92,11 @@ All routes except register/login require `Authorization: Bearer <token>`.
 
 ## Authorization model
 
-| Role | Can do |
-|---|---|
-| **OWNER** | Everything — delete project, add/remove members, change roles |
-| **ADMIN** | Manage issues/comments, add/remove members (not change roles), manage project content |
-| **MEMBER** | Create issues, edit/delete issues they created or are assigned to, comment |
+| Role       | Can do                                                                                |
+| ---------- | ------------------------------------------------------------------------------------- |
+| **OWNER**  | Everything — delete project, add/remove members, change roles                         |
+| **ADMIN**  | Manage issues/comments, add/remove members (not change roles), manage project content |
+| **MEMBER** | Create issues, edit/delete issues they created or are assigned to, comment            |
 
 Every mutating endpoint enforces this at the route layer (`requireProjectRole`
 middleware) or, for resources that don't carry a project id in the URL
@@ -118,12 +127,30 @@ prisma/
 - ✅ Comments: full CRUD
 - ✅ RBAC (OWNER/ADMIN/MEMBER) enforced across every mutating route
 - ✅ Centralized error handling (validation, auth, not-found, conflict, unexpected)
+- ✅ Automated tests (Jest + Supertest) — auth, projects, RBAC, and
+  analytics. See `tests/README.md` for how to run them and how to set up
+  an isolated test database.
+- ✅ Analytics endpoint (`GET /api/projects/:id/analytics`) — issue counts
+  by status and priority, e.g.:
+  ```json
+  {
+    "totalIssues": 12,
+    "todo": 4,
+    "inProgress": 3,
+    "completed": 5,
+    "highPriority": 2,
+    "byPriority": { "low": 3, "medium": 5, "high": 3, "critical": 1 },
+    "unassignedIssues": 6
+  }
+  ```
+- ✅ Interactive API docs — start the server and open
+  `http://localhost:4000/api-docs` for a Swagger UI covering every
+  endpoint (try-it-out included: click "Authorize" and paste a token from
+  `/auth/login` to test protected routes right from the browser). Raw
+  OpenAPI JSON is at `/api-docs.json`. Source: `src/docs/openapi.ts`.
 
 ## Not yet built (next phases)
 
-- Automated tests (Jest/Vitest + Supertest)
-- Analytics endpoint (`GET /api/projects/:id/analytics`)
-- Swagger/OpenAPI docs
 - Rate limiting, refresh tokens, structured logging
 - Deployment config
 
@@ -137,3 +164,21 @@ visible differences are the `output` path in `schema.prisma`'s generator
 block and that `PrismaClient` is constructed with an `adapter` in
 `src/config/prisma.ts`. This is Prisma's current recommended setup as of
 late 2025/2026 (smaller bundles, no binary-size headaches when deploying).
+
+## Troubleshooting
+
+- **`prisma migrate dev` fails with "datasource.url property is required"
+  even though it's set in `prisma.config.ts`**: this is an open bug in
+  recent Prisma 7.x releases. Workaround: pass the URL directly, e.g.
+  `npx prisma migrate dev --name init --url="$DATABASE_URL"` (this also
+  applies to `prisma migrate deploy` and `prisma studio`).
+- **Server can't find `../generated/prisma`**: the `prisma-client`
+  generator's entry file is `client.ts`, not `index.ts`. Every import
+  needs to be `"../generated/prisma/client"`, not `"../generated/prisma"`.
+- **"Unable to start a transaction in the given time" on project
+  creation**: Prisma's default transaction timeouts (2s/5s) can be too
+  tight over a long geographic distance to your database, or when using
+  a connection pooler. `createProject` already sets a longer
+  `{ maxWait: 10000, timeout: 15000 }`. If it still happens, try Neon's
+  _unpooled_ connection string (toggle "Connection pooling" off in
+  Neon's connect dialog) instead of the pooled one.
