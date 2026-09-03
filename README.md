@@ -80,7 +80,7 @@ Server starts at `http://localhost:4000`. Check `GET /health`.
 
 | Resource | Routes |
 |---|---|
-| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
+| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me` |
 | Projects | `POST/GET /api/projects`, `GET/PATCH/DELETE /api/projects/:id`, `GET /api/projects/:id/analytics` |
 | Members | `GET/POST /api/projects/:id/members`, `PATCH/DELETE /api/projects/:id/members/:userId` |
 | Issues | `POST/GET /api/projects/:projectId/issues`, `GET/PATCH/DELETE /api/issues/:id` |
@@ -159,10 +159,13 @@ prisma/
   aggregator). Unexpected errors log through the same structured logger
   instead of `console.error`. Source: `src/config/logger.ts`,
   `src/middleware/requestLogger.ts`.
-
-## Not yet built (next phase)
-
-- Refresh tokens
+- ✅ Refresh tokens — `/auth/register` and `/auth/login` now return both a
+  short-lived `token` (15m) and a long-lived `refreshToken` (7 days,
+  stored hashed in the `refresh_tokens` table). `POST /api/auth/refresh`
+  exchanges a valid refresh token for a new pair, rotating it in the
+  process (the old one is revoked, so reusing it fails — a signal of
+  token theft if it ever happens). `POST /api/auth/logout` now actually
+  revokes the given refresh token server-side, rather than being a no-op.
 
 ## Deployment
 

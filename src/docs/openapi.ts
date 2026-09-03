@@ -196,7 +196,8 @@ export const openApiDocument = {
                       type: "object",
                       properties: {
                         user: { $ref: "#/components/schemas/User" },
-                        token: { type: "string" },
+                        token: { type: "string", description: "Short-lived access token" },
+                        refreshToken: { type: "string", description: "Long-lived token used to obtain new access tokens" },
                       },
                     },
                   },
@@ -205,6 +206,45 @@ export const openApiDocument = {
             },
           },
           "409": responses.Conflict,
+          "400": responses.ValidationError,
+        },
+      },
+    },
+    "/auth/refresh": {
+      post: {
+        tags: ["Auth"],
+        summary: "Exchange a refresh token for a new access token (rotates the refresh token too)",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["refreshToken"],
+                properties: { refreshToken: { type: "string" } },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "New token pair",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: { token: { type: "string" }, refreshToken: { type: "string" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": responses.Unauthorized,
           "400": responses.ValidationError,
         },
       },
@@ -241,7 +281,8 @@ export const openApiDocument = {
                       type: "object",
                       properties: {
                         user: { $ref: "#/components/schemas/User" },
-                        token: { type: "string" },
+                        token: { type: "string", description: "Short-lived access token" },
+                        refreshToken: { type: "string", description: "Long-lived token used to obtain new access tokens" },
                       },
                     },
                   },
@@ -256,8 +297,18 @@ export const openApiDocument = {
     "/auth/logout": {
       post: {
         tags: ["Auth"],
-        summary: "Log out (stateless — client discards the token)",
+        summary: "Log out — revokes the given refresh token server-side",
         security: bearerAuth,
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { refreshToken: { type: "string", description: "Optional — if provided, this specific refresh token is revoked" } },
+              },
+            },
+          },
+        },
         responses: { "200": { description: "Logged out" }, "401": responses.Unauthorized },
       },
     },
