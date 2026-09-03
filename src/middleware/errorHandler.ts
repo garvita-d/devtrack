@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { Prisma } from "../generated/prisma/client";
 import { AppError } from "../utils/AppError";
 import { env } from "../config/env";
+import { logger } from "../config/logger";
 
 // Express recognizes this as an error-handling middleware because it takes
 // FOUR arguments. It must be registered last, after all routes.
@@ -51,7 +52,7 @@ export function errorHandler(
 
   // Anything else is unexpected — log it fully server-side, but never leak
   // internals (stack traces, SQL, etc.) to the client.
-  console.error("Unhandled error:", err);
+  logger.error({ err, path: req.path, method: req.method }, "Unhandled error");
 
   return res.status(500).json({
     success: false,

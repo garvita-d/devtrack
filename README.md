@@ -17,7 +17,8 @@ a bug.
 
 Node.js · Express · TypeScript · PostgreSQL · Prisma ORM 7 (Rust-free,
 driver-adapter architecture — no native binary to install or deploy) · JWT ·
-bcrypt · Zod · Jest + Supertest · Swagger UI (OpenAPI 3.0)
+bcrypt · Zod · Jest + Supertest · Swagger UI (OpenAPI 3.0) ·
+express-rate-limit · Pino
 
 ## Getting started
 
@@ -77,13 +78,13 @@ Server starts at `http://localhost:4000`. Check `GET /health`.
 
 ## API overview
 
-| Resource | Routes                                                                                            |
-| -------- | ------------------------------------------------------------------------------------------------- |
-| Auth     | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`    |
+| Resource | Routes |
+|---|---|
+| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
 | Projects | `POST/GET /api/projects`, `GET/PATCH/DELETE /api/projects/:id`, `GET /api/projects/:id/analytics` |
-| Members  | `GET/POST /api/projects/:id/members`, `PATCH/DELETE /api/projects/:id/members/:userId`            |
-| Issues   | `POST/GET /api/projects/:projectId/issues`, `GET/PATCH/DELETE /api/issues/:id`                    |
-| Comments | `GET/POST /api/issues/:issueId/comments`, `PATCH/DELETE /api/comments/:id`                        |
+| Members | `GET/POST /api/projects/:id/members`, `PATCH/DELETE /api/projects/:id/members/:userId` |
+| Issues | `POST/GET /api/projects/:projectId/issues`, `GET/PATCH/DELETE /api/issues/:id` |
+| Comments | `GET/POST /api/issues/:issueId/comments`, `PATCH/DELETE /api/comments/:id` |
 
 All routes except register/login require `Authorization: Bearer <token>`.
 
@@ -92,11 +93,11 @@ All routes except register/login require `Authorization: Bearer <token>`.
 
 ## Authorization model
 
-| Role       | Can do                                                                                |
-| ---------- | ------------------------------------------------------------------------------------- |
-| **OWNER**  | Everything — delete project, add/remove members, change roles                         |
-| **ADMIN**  | Manage issues/comments, add/remove members (not change roles), manage project content |
-| **MEMBER** | Create issues, edit/delete issues they created or are assigned to, comment            |
+| Role | Can do |
+|---|---|
+| **OWNER** | Everything — delete project, add/remove members, change roles |
+| **ADMIN** | Manage issues/comments, add/remove members (not change roles), manage project content |
+| **MEMBER** | Create issues, edit/delete issues they created or are assigned to, comment |
 
 Every mutating endpoint enforces this at the route layer (`requireProjectRole`
 middleware) or, for resources that don't carry a project id in the URL
@@ -148,10 +149,20 @@ prisma/
   endpoint (try-it-out included: click "Authorize" and paste a token from
   `/auth/login` to test protected routes right from the browser). Raw
   OpenAPI JSON is at `/api-docs.json`. Source: `src/docs/openapi.ts`.
+- ✅ Rate limiting (`express-rate-limit`) — 10 requests per 15 min per IP
+  on `/auth/register` and `/auth/login`; 300 per 15 min on the rest of
+  the API. Automatically disabled while running under Jest (the test
+  suite legitimately registers dozens of users per run).
+- ✅ Structured logging (Pino) — every request is logged with method,
+  path, status, and duration via `pino-http`; pretty-printed in
+  development, plain JSON in production (feed that straight into a log
+  aggregator). Unexpected errors log through the same structured logger
+  instead of `console.error`. Source: `src/config/logger.ts`,
+  `src/middleware/requestLogger.ts`.
 
-## Not yet built (next phases)
+## Not yet built (next phase)
 
-- Rate limiting, refresh tokens, structured logging
+- Refresh tokens
 
 ## Deployment
 
@@ -196,7 +207,7 @@ late 2025/2026 (smaller bundles, no binary-size headaches when deploying).
   recent Prisma 7.x releases. Workaround: pass the URL directly, e.g.
   `npx prisma migrate dev --name init --url="$DATABASE_URL"` (this also
   applies to `prisma studio`). Note that `prisma migrate deploy` does
-  _not_ support a `--url` flag at all (that option only exists on
+  *not* support a `--url` flag at all (that option only exists on
   `migrate dev`) — see the Deployment section above for how this project
   works around that in practice.
 - **Server can't find `../generated/prisma`**: the `prisma-client`
@@ -207,5 +218,5 @@ late 2025/2026 (smaller bundles, no binary-size headaches when deploying).
   tight over a long geographic distance to your database, or when using
   a connection pooler. `createProject` already sets a longer
   `{ maxWait: 10000, timeout: 15000 }`. If it still happens, try Neon's
-  _unpooled_ connection string (toggle "Connection pooling" off in
+  *unpooled* connection string (toggle "Connection pooling" off in
   Neon's connect dialog) instead of the pooled one.
