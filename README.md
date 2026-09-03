@@ -42,12 +42,13 @@ cp .env.example .env
 
 Edit `.env`:
 
+```
 DATABASE_URL="postgresql://user:password@localhost:5432/devtrack_dev"
 JWT_SECRET="generate a long random string here"
 JWT_EXPIRES_IN="15m"
 PORT=4000
 NODE_ENV=development
-
+```
 
 Generate a strong `JWT_SECRET` with:
 
@@ -76,13 +77,13 @@ Server starts at `http://localhost:4000`. Check `GET /health`.
 
 ## API overview
 
-| Resource | Routes |
-|---|---|
-| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
+| Resource | Routes                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------- |
+| Auth     | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`    |
 | Projects | `POST/GET /api/projects`, `GET/PATCH/DELETE /api/projects/:id`, `GET /api/projects/:id/analytics` |
-| Members | `GET/POST /api/projects/:id/members`, `PATCH/DELETE /api/projects/:id/members/:userId` |
-| Issues | `POST/GET /api/projects/:projectId/issues`, `GET/PATCH/DELETE /api/issues/:id` |
-| Comments | `GET/POST /api/issues/:issueId/comments`, `PATCH/DELETE /api/comments/:id` |
+| Members  | `GET/POST /api/projects/:id/members`, `PATCH/DELETE /api/projects/:id/members/:userId`            |
+| Issues   | `POST/GET /api/projects/:projectId/issues`, `GET/PATCH/DELETE /api/issues/:id`                    |
+| Comments | `GET/POST /api/issues/:issueId/comments`, `PATCH/DELETE /api/comments/:id`                        |
 
 All routes except register/login require `Authorization: Bearer <token>`.
 
@@ -91,11 +92,11 @@ All routes except register/login require `Authorization: Bearer <token>`.
 
 ## Authorization model
 
-| Role | Can do |
-|---|---|
-| **OWNER** | Everything — delete project, add/remove members, change roles |
-| **ADMIN** | Manage issues/comments, add/remove members (not change roles), manage project content |
-| **MEMBER** | Create issues, edit/delete issues they created or are assigned to, comment |
+| Role       | Can do                                                                                |
+| ---------- | ------------------------------------------------------------------------------------- |
+| **OWNER**  | Everything — delete project, add/remove members, change roles                         |
+| **ADMIN**  | Manage issues/comments, add/remove members (not change roles), manage project content |
+| **MEMBER** | Create issues, edit/delete issues they created or are assigned to, comment            |
 
 Every mutating endpoint enforces this at the route layer (`requireProjectRole`
 middleware) or, for resources that don't carry a project id in the URL
@@ -103,17 +104,19 @@ middleware) or, for resources that don't carry a project id in the URL
 project/issue first and then checking role + ownership.
 
 ## Project structure
-src/
-├── controllers/ thin request/response layer
-├── services/ business logic, the only layer that talks to Prisma
-├── routes/ Express routers (nested + top-level, see table above)
-├── middleware/ auth, RBAC, validation, centralized error handling
-├── validators/ Zod schemas per resource
-├── config/ env loading, Prisma client singleton
-└── generated/ (gitignored) Prisma client output
-prisma/
-└── schema.prisma full data model
 
+```
+src/
+├── controllers/   thin request/response layer
+├── services/      business logic, the only layer that talks to Prisma
+├── routes/        Express routers (nested + top-level, see table above)
+├── middleware/     auth, RBAC, validation, centralized error handling
+├── validators/     Zod schemas per resource
+├── config/         env loading, Prisma client singleton
+└── generated/      (gitignored) Prisma client output
+prisma/
+└── schema.prisma   full data model
+```
 
 ## What's built so far (Phase 1 + 2 of the roadmap)
 
@@ -129,7 +132,7 @@ prisma/
   an isolated test database.
 - ✅ Analytics endpoint (`GET /api/projects/:id/analytics`) — issue counts
   by status and priority, e.g.:
-```json
+  ```json
   {
     "totalIssues": 12,
     "todo": 4,
@@ -139,7 +142,7 @@ prisma/
     "byPriority": { "low": 3, "medium": 5, "high": 3, "critical": 1 },
     "unassignedIssues": 6
   }
-```
+  ```
 - ✅ Interactive API docs — start the server and open
   `http://localhost:4000/api-docs` for a Swagger UI covering every
   endpoint (try-it-out included: click "Authorize" and paste a token from
@@ -193,7 +196,7 @@ late 2025/2026 (smaller bundles, no binary-size headaches when deploying).
   recent Prisma 7.x releases. Workaround: pass the URL directly, e.g.
   `npx prisma migrate dev --name init --url="$DATABASE_URL"` (this also
   applies to `prisma studio`). Note that `prisma migrate deploy` does
-  *not* support a `--url` flag at all (that option only exists on
+  _not_ support a `--url` flag at all (that option only exists on
   `migrate dev`) — see the Deployment section above for how this project
   works around that in practice.
 - **Server can't find `../generated/prisma`**: the `prisma-client`
@@ -204,5 +207,5 @@ late 2025/2026 (smaller bundles, no binary-size headaches when deploying).
   tight over a long geographic distance to your database, or when using
   a connection pooler. `createProject` already sets a longer
   `{ maxWait: 10000, timeout: 15000 }`. If it still happens, try Neon's
-  *unpooled* connection string (toggle "Connection pooling" off in
+  _unpooled_ connection string (toggle "Connection pooling" off in
   Neon's connect dialog) instead of the pooled one.
